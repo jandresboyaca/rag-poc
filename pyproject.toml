@@ -1,0 +1,12 @@
+[project]
+name = "rag"
+version = "0.1.0"
+description = "Local RAG PoC: Ollama + ChromaDB + MCP, migrable to GCP Vertex AI"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "chromadb>=0.6.0",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.8.0",
+    "python-dotenv>=1.1.0",
+]

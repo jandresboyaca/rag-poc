@@ -1,0 +1,12 @@
+[project]
+name = "rag-visualizer"
+version = "0.1.0"
+description = "Export ChromaDB embeddings to TensorBoard Projector"
+requires-python = ">=3.10"
+dependencies = [
+    "chromadb>=0.6.0",
+    "tensorboard>=2.15.0",
+    "numpy>=1.26.0",
+    "pandas>=2.0.0",
+    "python-dotenv>=1.1.0",
+]

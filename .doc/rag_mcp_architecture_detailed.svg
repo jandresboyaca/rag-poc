@@ -1,0 +1,143 @@
+<svg width="680" height="780" viewBox="0 0 680 780" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>RAG + MCP Architecture — Detailed</title>
+  <desc>Full detailed architecture from Claude query through MCP Server, RAG pipeline on Vertex AI, knowledge base ingestion and back</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#0F6E56" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrow-gray" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#B4B2A9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+      .th  { font-size: 14px; font-weight: 500; }
+      .ts  { font-size: 12px; font-weight: 400; }
+      .th-purple { fill: #3C3489; }
+      .ts-purple { fill: #534AB7; }
+      .th-teal   { fill: #085041; }
+      .ts-teal   { fill: #0F6E56; }
+      .th-blue   { fill: #0C447C; }
+      .ts-blue   { fill: #185FA5; }
+      .th-amber  { fill: #633806; }
+      .ts-amber  { fill: #854F0B; }
+      .th-coral  { fill: #712B13; }
+      .ts-coral  { fill: #993C1D; }
+      .th-gray   { fill: #444441; }
+      .ts-gray   { fill: #5F5E5A; }
+      .label     { font-size: 12px; font-weight: 400; fill: #888780; }
+      .footnote  { font-size: 11px; font-weight: 400; fill: #888780; }
+    </style>
+  </defs>
+
+  <!-- ══ LAYER 0: Claude ══ -->
+  <rect x="190" y="20" width="300" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+  <text class="th th-purple" x="340" y="40" text-anchor="middle" dominant-baseline="central">Claude (you)</text>
+  <text class="ts ts-purple" x="340" y="60" text-anchor="middle" dominant-baseline="central">Asks questions in natural language</text>
+
+  <!-- arrow down + label -->
+  <line x1="340" y1="76" x2="340" y2="106" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="label" x="365" y="95">tool call</text>
+
+  <!-- ══ LAYER 1: MCP Server ══ -->
+  <rect x="150" y="108" width="380" height="64" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+  <text class="th th-teal" x="340" y="128" text-anchor="middle" dominant-baseline="central">MCP server</text>
+  <text class="ts ts-teal" x="340" y="148" text-anchor="middle" dominant-baseline="central">Exposes tool: search_knowledge(query: str) → context</text>
+
+  <!-- arrow down -->
+  <line x1="340" y1="172" x2="340" y2="202" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ══ RAG PIPELINE container ══ -->
+  <rect x="40" y="202" width="600" height="332" rx="12" fill="none" stroke="#B4B2A9" stroke-width="1" stroke-dasharray="6 4"/>
+  <text class="label" x="60" y="222">RAG pipeline (your AI on Vertex AI)</text>
+
+  <!-- Step 1: Embed query -->
+  <rect x="58" y="230" width="175" height="64" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+  <text class="th th-blue" x="145" y="250" text-anchor="middle" dominant-baseline="central">1. Embed query</text>
+  <text class="ts ts-blue" x="145" y="270" text-anchor="middle" dominant-baseline="central">text-embedding-004</text>
+
+  <!-- arrow right -->
+  <line x1="233" y1="262" x2="266" y2="262" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Step 2: Vector search -->
+  <rect x="266" y="230" width="175" height="64" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+  <text class="th th-blue" x="353" y="250" text-anchor="middle" dominant-baseline="central">2. Vector search</text>
+  <text class="ts ts-blue" x="353" y="270" text-anchor="middle" dominant-baseline="central">top-K similar chunks</text>
+
+  <!-- arrow right -->
+  <line x1="441" y1="262" x2="474" y2="262" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Step 3: Reranker -->
+  <rect x="474" y="230" width="142" height="64" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+  <text class="th th-blue" x="545" y="250" text-anchor="middle" dominant-baseline="central">3. Reranker</text>
+  <text class="ts ts-blue" x="545" y="270" text-anchor="middle" dominant-baseline="central">score by relevance</text>
+
+  <!-- arrow down from vector search center to prompt builder -->
+  <line x1="353" y1="294" x2="353" y2="334" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="label" x="378" y="318">top chunks</text>
+
+  <!-- Step 4: Prompt builder -->
+  <rect x="180" y="334" width="320" height="74" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+  <text class="th th-amber" x="340" y="354" text-anchor="middle" dominant-baseline="central">4. Prompt builder</text>
+  <text class="ts ts-amber" x="340" y="372" text-anchor="middle" dominant-baseline="central">system prompt + retrieved chunks</text>
+  <text class="ts ts-amber" x="340" y="390" text-anchor="middle" dominant-baseline="central">+ original query</text>
+
+  <!-- arrow down to LLM -->
+  <line x1="340" y1="408" x2="340" y2="448" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Step 5: LLM -->
+  <rect x="180" y="448" width="320" height="64" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.5"/>
+  <text class="th th-coral" x="340" y="468" text-anchor="middle" dominant-baseline="central">5. LLM on Vertex AI</text>
+  <text class="ts ts-coral" x="340" y="488" text-anchor="middle" dominant-baseline="central">Gemini Pro / Flash / custom model</text>
+
+  <!-- response arrow back up to MCP (right side, dashed green) -->
+  <path d="M500 480 L610 480 L610 140 L532 140" fill="none" stroke="#0F6E56" stroke-width="1" stroke-dasharray="5 3" marker-end="url(#arrow-green)"/>
+  <text class="ts ts-teal" x="628" y="312" text-anchor="middle">r</text>
+  <text class="ts ts-teal" x="628" y="326" text-anchor="middle">e</text>
+  <text class="ts ts-teal" x="628" y="340" text-anchor="middle">s</text>
+  <text class="ts ts-teal" x="628" y="354" text-anchor="middle">p</text>
+  <text class="ts ts-teal" x="628" y="368" text-anchor="middle">o</text>
+  <text class="ts ts-teal" x="628" y="382" text-anchor="middle">n</text>
+  <text class="ts ts-teal" x="628" y="396" text-anchor="middle">s</text>
+  <text class="ts ts-teal" x="628" y="410" text-anchor="middle">e</text>
+
+  <!-- ══ KNOWLEDGE BASE ══ -->
+  <rect x="40" y="566" width="200" height="64" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+  <text class="th th-gray" x="140" y="586" text-anchor="middle" dominant-baseline="central">Knowledge base</text>
+  <text class="ts ts-gray" x="140" y="606" text-anchor="middle" dominant-baseline="central">PDFs, docs, APIs, wikis</text>
+
+  <!-- ingestion arrow up-left to embed step -->
+  <path d="M140 566 L140 262 L56 262" fill="none" stroke="#B4B2A9" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow-gray)"/>
+  <text class="label" x="22" y="418">i</text>
+  <text class="label" x="22" y="432">n</text>
+  <text class="label" x="22" y="446">g</text>
+  <text class="label" x="22" y="460">e</text>
+  <text class="label" x="22" y="474">s</text>
+  <text class="label" x="22" y="488">t</text>
+
+  <!-- Chunking box -->
+  <rect x="260" y="566" width="180" height="64" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+  <text class="th th-gray" x="350" y="586" text-anchor="middle" dominant-baseline="central">Chunking</text>
+  <text class="ts ts-gray" x="350" y="606" text-anchor="middle" dominant-baseline="central">size=500, overlap=50</text>
+
+  <!-- Embed + store box -->
+  <rect x="460" y="566" width="180" height="64" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+  <text class="th th-gray" x="550" y="586" text-anchor="middle" dominant-baseline="central">Embed + store</text>
+  <text class="ts ts-gray" x="550" y="606" text-anchor="middle" dominant-baseline="central">vectors → Vector DB</text>
+
+  <!-- ingestion flow arrows -->
+  <line x1="240" y1="598" x2="258" y2="598" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="440" y1="598" x2="458" y2="598" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ingestion label bar -->
+  <rect x="40" y="646" width="600" height="34" rx="8" fill="#F1EFE8" stroke="#D3D1C7" stroke-width="0.5"/>
+  <text class="footnote" x="340" y="667" text-anchor="middle">ingestion phase — runs once (or when docs are updated)</text>
+
+  <!-- ══ FLOW LEGEND ══ -->
+  <rect x="40" y="696" width="600" height="58" rx="8" fill="#F1EFE8" stroke="#D3D1C7" stroke-width="0.5"/>
+  <text class="ts ts-gray" x="60" y="716">Query flow:</text>
+  <text class="footnote" x="60" y="738">Claude → MCP tool call → embed query → vector search → rerank → build prompt → LLM → response → Claude</text>
+
+</svg>

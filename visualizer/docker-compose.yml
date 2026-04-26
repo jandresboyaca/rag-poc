@@ -1,0 +1,11 @@
+services:
+  visualizer:
+    build: .
+    ports:
+      - "6006:6006"
+    volumes:
+      - ../chroma_db:/app/chroma_db:ro
+      - ./tensorboard_data:/app/tensorboard_data
+    environment:
+      - CHROMA_PATH=/app/chroma_db
+      - COLLECTION_NAME=${COLLECTION_NAME:-knowledge_base}
