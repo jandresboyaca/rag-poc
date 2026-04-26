@@ -1,0 +1,32 @@
+services:
+  inspector-rag:
+    build: .
+    profiles: ["rag"]
+    environment:
+      - TARGET=rag
+      # Inspector binds UI to all interfaces inside the container so the host
+      # browser can reach it via the published port.
+      - HOST=0.0.0.0
+      - DANGEROUSLY_OMIT_AUTH=true
+    volumes:
+      - ..:/workspace
+    ports:
+      - "6274:6274"
+      - "6277:6277"
+    stdin_open: true
+    tty: true
+
+  inspector-docs:
+    build: .
+    profiles: ["docs"]
+    environment:
+      - TARGET=docs
+      - HOST=0.0.0.0
+      - DANGEROUSLY_OMIT_AUTH=true
+    volumes:
+      - ..:/workspace
+    ports:
+      - "6274:6274"
+      - "6277:6277"
+    stdin_open: true
+    tty: true

@@ -16,7 +16,7 @@ load_dotenv()
 ai_provider = os.getenv("AI_PROVIDER", "anthropic").lower()
 
 if ai_provider == "ollama":
-    ollama_model = os.getenv("OLLAMA_MODEL", "neural-chat")
+    ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:7b-instruct")
     ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
 else:
     claude_model = os.getenv("CLAUDE_MODEL", "")
@@ -48,8 +48,16 @@ async def main():
 
         for i, server_script in enumerate(server_scripts):
             client_id = f"client_{i}_{server_script}"
+            # Run the external server with uv against the project that owns
+            # the script (its directory's pyproject.toml). Without --project,
+            # uv would use cli/.venv, which lacks the server's dependencies.
+            abs_script = os.path.abspath(server_script)
+            project_dir = os.path.dirname(abs_script)
             client = await stack.enter_async_context(
-                MCPClient(command="uv", args=["run", server_script])
+                MCPClient(
+                    command="uv",
+                    args=["run", "--project", project_dir, "python", abs_script],
+                )
             )
             clients[client_id] = client
 

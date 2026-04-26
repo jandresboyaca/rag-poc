@@ -111,11 +111,17 @@ def from_env(collection_name: str | None = None) -> RAGPipeline:
     If ``collection_name`` is given it overrides ``COLLECTION_NAME`` from the env;
     this is how callers select a specific KB version.
     """
-    load_dotenv()
+    rag_root = Path(__file__).resolve().parent
+    load_dotenv(rag_root / ".env")
+
+    chroma_path = Path(os.environ["CHROMA_PATH"])
+    if not chroma_path.is_absolute():
+        chroma_path = (rag_root / chroma_path).resolve()
+
     return RAGPipeline(
         ollama_url=os.environ["OLLAMA_URL"],
         embed_model=os.environ["EMBED_MODEL"],
         chat_model=os.environ["CHAT_MODEL"],
-        chroma_path=os.environ["CHROMA_PATH"],
+        chroma_path=str(chroma_path),
         collection_name=collection_name or os.environ["COLLECTION_NAME"],
     )

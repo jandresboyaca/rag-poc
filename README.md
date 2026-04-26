@@ -19,20 +19,24 @@ engineering policy (`docs/engineering_policy.md`).
 
 ### Query flow (every user question)
 
-```
-User question (terminal CLI)
-        │
-        ▼  via MCP stdio
-mcp_rag_server.py  →  RAGPipeline.answer(query)
-        │
-        ├─ 1. embed_text(query)         qwen3-embedding:8b  via Ollama /api/embed
-        ├─ 2. vector search             ChromaDB cosine similarity, top-5 chunks
-        ├─ 3. build_rag_prompt          system + chunks + question (fixed template)
-        └─ 4. LLM generation            neural-chat        via Ollama /api/chat
-        │
-        ▼
-grounded answer  →  MCP server  →  CLI
-```
+![Query flow](.doc/query_flow.svg)
+
+A single user question triggers **three model invocations**, two of which are
+LLM calls of the same model in different roles:
+
+| # | Role                                              | Model                  | Where it runs                                      |
+|---|---------------------------------------------------|------------------------|----------------------------------------------------|
+| 1 | **LLM #1** — conversational / tool dispatcher     | `qwen2.5:7b-instruct`  | CLI: `cli/main.py` → `cli/core/ollama.py`          |
+| 2 | **Embedding** — vectorizes query (and chunks)     | `qwen3-embedding:8b`   | RAG pipeline: `step1_ingestion.embed_text`         |
+| 3 | **LLM #2** — grounded generator (answers from chunks only) | `qwen2.5:7b-instruct` | RAG pipeline: `step2_query.call_ollama_chat`       |
+
+**LLM #1** decides *whether* to call `search_knowledge` and produces the final
+answer the user sees. **LLM #2** is invoked inside the tool, constrained by the
+RAG prompt template to answer **only** from the retrieved chunks. Same model
+in this PoC for simplicity, but conceptually two separate roles — in Vertex AI
+you might use Gemini Flash for #1 (fast tool routing) and Gemini Pro for #2
+(stricter grounding). The **embedding model is not an LLM** — it produces
+vectors, never text.
 
 ### Ingestion flow (runs once per KB version)
 
@@ -58,12 +62,15 @@ not just keywords.
 
 ## 3. Embedding Model: `qwen3-embedding:8b` (Q4_K_M)
 
+- **Not an LLM.** It produces vectors, never text — its only output is a list
+  of 4096 floats representing semantic meaning.
 - Dedicated embedding model — its **only** job is converting text into a 4096-dim vector.
 - 8B parameters quantized to Q4_K_M: fits in **~5 GB VRAM**. Your 12 GB GPU has room
   for the chat LLM on top.
 - State-of-the-art quality for English technical retrieval.
-- **Do not** use `neural-chat` for embeddings — chat-tuned LLMs produce less
-  precise semantic vectors because they were not trained for retrieval.
+- **Do not** use the chat LLM (`qwen2.5:7b-instruct`) for embeddings — chat-tuned
+  LLMs produce less precise semantic vectors because they were not trained for
+  retrieval.
 
 | Model                       | Dims | VRAM    | Notes                                |
 |-----------------------------|------|---------|--------------------------------------|
@@ -82,7 +89,7 @@ not just keywords.
 |-------------|--------------------------------------|-----------------------------------|
 | Embeddings  | `qwen3-embedding:8b` (Ollama)        | `text-embedding-004` (Vertex AI)  |
 | Vector DB   | ChromaDB on disk                     | Vertex AI Vector Search           |
-| LLM         | `neural-chat` (Ollama)               | Gemini Pro / Gemini Flash         |
+| LLM         | `qwen2.5:7b-instruct` (Ollama)       | Gemini Pro / Gemini Flash         |
 | Infra       | Your machine                         | GCP (monitoring, IAM included)    |
 
 **What does NOT change:** `chunk_text()`, `build_rag_prompt()`, the `RAGPipeline`
@@ -194,7 +201,7 @@ bash refresh.sh v2-add-security-policy
 User in CLI: "How should I handle errors in Python?"
     │
     ▼
-CliChat → Chat.run() → neural-chat receives tools=[search_knowledge]
+CliChat → Chat.run() → qwen2.5:7b-instruct receives tools=[search_knowledge]
     │
     ▼  LLM decides to call the tool
 ToolManager → rag_client.call_tool("search_knowledge", {"query": "..."})
@@ -204,7 +211,7 @@ mcp_rag_server.py → RAGPipeline.answer("...")
     │  1. embed_text(query)            → 4096-dim vector
     │  2. ChromaDB.query(vector, n=5)  → top chunks from coding_standards.md
     │  3. build_rag_prompt(query, chunks)
-    │  4. call_ollama_chat(prompt, "neural-chat")
+    │  4. call_ollama_chat(prompt, "qwen2.5:7b-instruct")
     ▼
 "Always catch specific exceptions. Log with context (user_id, request_id).
  Never use bare except."
@@ -214,7 +221,32 @@ mcp_rag_server.py → RAGPipeline.answer("...")
 
 ---
 
-## 9. Verification Checklist
+## 9. MCP Inspector (visual debugger)
+
+A small Dockerized subproject in `inspector/` wraps the official
+[`@modelcontextprotocol/inspector`](https://github.com/modelcontextprotocol/inspector)
+so you can click through tools, resources, and prompts of either MCP server in
+a web UI — useful for verifying docstrings, calling tools with crafted inputs,
+and watching request/response payloads without going through the CLI chat.
+
+```bash
+cd inspector
+
+# Inspect the RAG knowledge base server (search_knowledge, rag://collection)
+bash launch.sh rag
+
+# Or the document MCP server (read_doc, edit_doc, docs://documents)
+bash launch.sh docs
+
+# Open: http://localhost:6274
+```
+
+Stops with `Ctrl+C`. Switch servers by stopping one profile and launching the
+other — both bind to the same ports. See `inspector/README.md` for details.
+
+---
+
+## 10. Verification Checklist
 
 - [ ] `bash setup.sh` finishes clean
 - [ ] `uv run python ingest.py --docs ./docs --version knowledge_base` reports N chunks
@@ -225,5 +257,7 @@ mcp_rag_server.py → RAGPipeline.answer("...")
 - [ ] Visualizer (native): `cd visualizer && uv sync && uv run python export_to_tensorboard.py && uv run tensorboard --logdir ./tensorboard_data --port 6006` opens at `localhost:6006/#projector`
 - [ ] Visualizer (Docker, alternative): `cd visualizer && docker compose up --build`
 - [ ] Two semantic clusters visible (coding standards vs engineering policy)
+- [ ] `cd inspector && bash launch.sh rag` opens MCP Inspector UI at `localhost:6274` showing `search_knowledge`
+- [ ] `cd inspector && bash launch.sh docs` shows `read_doc` and `edit_doc` with new docstrings
 - [ ] `cd cli && uv run python main.py ../mcp_rag_server.py` starts CLI with both MCP servers
 - [ ] Question in CLI → LLM calls `search_knowledge` → answer grounded in the docs

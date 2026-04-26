@@ -9,11 +9,11 @@ The repository uses a long-lived branch model with two protected branches.
 
 - `main` — always production-ready. Every commit on `main` is deployable.
 - `develop` — integration branch where feature branches are merged before release.
-- `feature/<ticket-id>-<short-description>` — branched from `develop`,
+- `feature/JANBS-<ticket-id>-<short-description>` — branched from `develop`,
   one feature per branch, rebased onto `develop` before merge.
-- `hotfix/<ticket-id>-<short-description>` — branched from `main`, used for
+- `hotfix/JANBS-<ticket-id>-<short-description>` — branched from `main`, used for
   production fixes that cannot wait for the next release cycle.
-- `release/vX.Y.Z` — branched from `develop` when cutting a release. Only
+- `release/JANBS-X.Y.Z` — branched from `develop` when cutting a release. Only
   bug fixes go onto a release branch; new features wait for the next cycle.
 
 ## 2. Hotfix Policy
