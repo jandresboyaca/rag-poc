@@ -9,4 +9,7 @@ dependencies = [
     "numpy>=1.26.0",
     "pandas>=2.0.0",
     "python-dotenv>=1.1.0",
+    # tensorboard imports `pkg_resources` from setuptools at runtime.
+    # setuptools 81+ removed pkg_resources, so pin below it.
+    "setuptools>=70.0.0,<81",
 ]

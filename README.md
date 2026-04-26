@@ -7,12 +7,15 @@ designed so the migration to GCP Vertex AI is a **swap of components, not a rewr
 Knowledge base: internal coding standards (`docs/coding_standards.md`) and
 engineering policy (`docs/engineering_policy.md`).
 
+![PoC overview](.doc/PoC.png)
+
 ---
 
 ## 1. Architecture Overview
 
-See `.doc/rag_mcp_architecture_detailed.svg` and `.doc/chatbot_rag_mcp_architecture.svg`
-for the full diagrams.
+![RAG + MCP architecture (detailed)](.doc/rag_mcp_architecture_detailed.svg)
+
+![Chatbot ↔ RAG ↔ MCP](.doc/chatbot_rag_mcp_architecture.svg)
 
 ### Query flow (every user question)
 
@@ -73,7 +76,7 @@ not just keywords.
 
 ## 4. Local Stack vs Vertex AI
 
-See `.doc/local_vs_vertex_english.svg`.
+![Local stack vs Vertex AI](.doc/local_vs_vertex_english.svg)
 
 | Layer       | Local (this PoC)                     | GCP (next step)                   |
 |-------------|--------------------------------------|-----------------------------------|
@@ -119,16 +122,29 @@ git init && git add . && git commit -m "chore: initial RAG project structure"
 bash setup.sh
 
 # 2. Ingest documents into a named version
-uv run python ingest.py --docs ./docs --version v1
+#    NOTE: ChromaDB requires collection names of 3-512 chars
+#          ([a-zA-Z0-9._-], starting/ending alphanumeric).
+uv run python ingest.py --docs ./docs --version v1-init
 uv run python ingest.py --list
 
 # 3. End-to-end check
 uv run python smoke_test.py
 
 # 4. (Optional) Visualize embeddings in TensorBoard Projector
+#    Two ways — pick whichever you prefer:
+#
+#    Option A: Native (uv) — fastest, no Docker overhead
 cd visualizer
-docker compose up           # http://localhost:6006/#projector
-# expect two clusters: coding_standards.md vs engineering_policy.md
+uv sync
+uv run python export_to_tensorboard.py        # writes tensorboard_data/<version>/
+uv run tensorboard --logdir ./tensorboard_data --port 6006
+# Open: http://localhost:6006/#projector
+# (To switch version: uv run python export_to_tensorboard.py --version v2-... && refresh browser)
+#
+#    Option B: Docker
+# cd visualizer && docker compose up --build
+#
+# Either way you should see two clusters: coding_standards.md vs engineering_policy.md
 
 # 5. Standalone query (no chat UI)
 cd ..
@@ -143,7 +159,7 @@ uv run python main.py ../mcp_rag_server.py
 
 > If `COLLECTION_NAME` in `.env` is `knowledge_base`, your ingest version must
 > also be `knowledge_base` (or change the env var to point at any other version
-> like `v1`, `v2-add-security-policy`, etc.).
+> like `v1-init`, `v2-add-security-policy`, etc.).
 
 ---
 
@@ -153,11 +169,11 @@ Each call to `ingest.py --version <name>` is a separate ChromaDB collection.
 Multiple versions live side-by-side:
 
 ```bash
-uv run python ingest.py --docs ./docs           --version v1
+uv run python ingest.py --docs ./docs           --version v1-init
 uv run python ingest.py --docs ./docs/security  --version v2-add-security-policy
 uv run python ingest.py --list
-uv run python ingest.py --inspect v1
-uv run python ingest.py --delete v1
+uv run python ingest.py --inspect v1-init
+uv run python ingest.py --delete v1-init
 ```
 
 Switch which version the MCP server (and CLI chat) uses by setting
@@ -206,7 +222,8 @@ mcp_rag_server.py → RAGPipeline.answer("...")
 - [ ] `uv run python smoke_test.py` → all checks PASS
 - [ ] `uv run python step2_query.py "How do I name variables?"` references coding_standards.md
 - [ ] `uv run python step2_query.py "How do I create a hotfix?"` references engineering_policy.md
-- [ ] `cd visualizer && docker compose up` opens TensorBoard at `localhost:6006/#projector`
+- [ ] Visualizer (native): `cd visualizer && uv sync && uv run python export_to_tensorboard.py && uv run tensorboard --logdir ./tensorboard_data --port 6006` opens at `localhost:6006/#projector`
+- [ ] Visualizer (Docker, alternative): `cd visualizer && docker compose up --build`
 - [ ] Two semantic clusters visible (coding standards vs engineering policy)
 - [ ] `cd cli && uv run python main.py ../mcp_rag_server.py` starts CLI with both MCP servers
 - [ ] Question in CLI → LLM calls `search_knowledge` → answer grounded in the docs

@@ -4,8 +4,12 @@ services:
     ports:
       - "6006:6006"
     volumes:
-      - ../chroma_db:/app/chroma_db:ro
+      # Not :ro — ChromaDB uses SQLite which needs to write WAL/journal files
+      # even on read-only operations.
+      - ../chroma_db:/app/chroma_db
       - ./tensorboard_data:/app/tensorboard_data
+      # Mount the export script so edits are picked up without a rebuild.
+      - ./export_to_tensorboard.py:/app/export_to_tensorboard.py:ro
     environment:
       - CHROMA_PATH=/app/chroma_db
       - COLLECTION_NAME=${COLLECTION_NAME:-knowledge_base}

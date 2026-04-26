@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 
 import chromadb
@@ -23,12 +24,26 @@ from dotenv import load_dotenv
 
 from step3_full_pipeline import RAGPipeline
 
+# ChromaDB collection naming rules: 3-512 chars from [a-zA-Z0-9._-],
+# must start and end with an alphanumeric character.
+_COLLECTION_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{1,510}[A-Za-z0-9]$")
+
+
+def _validate_version(version: str) -> None:
+    if not _COLLECTION_NAME_RE.match(version):
+        raise SystemExit(
+            f"Invalid --version '{version}'. ChromaDB requires 3-512 chars from "
+            "[a-zA-Z0-9._-], starting and ending alphanumeric (e.g. 'v1-init', "
+            "'knowledge_base', 'v2-add-security')."
+        )
+
 
 def _client(chroma_path: str) -> chromadb.PersistentClient:
     return chromadb.PersistentClient(path=chroma_path)
 
 
 def cmd_ingest(docs_dir: str, version: str) -> int:
+    _validate_version(version)
     pipeline = RAGPipeline(
         ollama_url=os.environ["OLLAMA_URL"],
         embed_model=os.environ["EMBED_MODEL"],

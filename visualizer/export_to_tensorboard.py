@@ -44,10 +44,14 @@ def export(chroma_path: str, version: str, output_root: Path) -> int:
     collection = client.get_collection(version)
     data = collection.get(include=["embeddings", "documents", "metadatas"])
 
-    embeddings = data.get("embeddings") or []
-    documents = data.get("documents") or []
-    metadatas = data.get("metadatas") or []
-    ids = data.get("ids") or []
+    # ChromaDB returns embeddings as a numpy array — avoid `or []` because
+    # numpy raises ValueError when truth-testing arrays.
+    embeddings = data.get("embeddings")
+    if embeddings is None:
+        embeddings = []
+    documents = data.get("documents") if data.get("documents") is not None else []
+    metadatas = data.get("metadatas") if data.get("metadatas") is not None else []
+    ids = data.get("ids") if data.get("ids") is not None else []
 
     if len(embeddings) == 0:
         print(f"Collection '{version}' is empty.")
@@ -76,25 +80,48 @@ def export(chroma_path: str, version: str, output_root: Path) -> int:
             f.write(f"{cid}\t{source}\t{ver}\t{preview}\n")
     print(f"Written: {metadata_path.relative_to(output_root.parent)}")
 
-    config_path = out_dir / "projector_config.pbtxt"
-    config_path.write_text(
-        "embeddings {\n"
-        f'  tensor_name: "{version}"\n'
-        '  tensor_path: "vectors.tsv"\n'
-        '  metadata_path: "metadata.tsv"\n'
-        "}\n",
-        encoding="utf-8",
-    )
-    print(f"Written: {config_path.relative_to(output_root.parent)}")
+    # TensorBoard Projector reads projector_config.pbtxt from the logdir root
+    # (not from subfolders). Aggregate every version that has been exported so
+    # far into one config so the UI lets you switch between them.
+    _rewrite_root_projector_config(output_root)
 
     print("\nOpen in browser: http://localhost:6006/#projector")
     return 0
 
 
+def _rewrite_root_projector_config(output_root: Path) -> None:
+    """Scan ``output_root`` for every version subfolder that has both TSVs and
+    write a single ``projector_config.pbtxt`` at the root listing them all."""
+    blocks: list[str] = []
+    for version_dir in sorted(p for p in output_root.iterdir() if p.is_dir()):
+        vectors = version_dir / "vectors.tsv"
+        metadata = version_dir / "metadata.tsv"
+        if not vectors.exists() or not metadata.exists():
+            continue
+        name = version_dir.name
+        blocks.append(
+            "embeddings {\n"
+            f'  tensor_name: "{name}"\n'
+            f'  tensor_path: "{name}/vectors.tsv"\n'
+            f'  metadata_path: "{name}/metadata.tsv"\n'
+            "}\n"
+        )
+    root_config = output_root / "projector_config.pbtxt"
+    root_config.write_text("".join(blocks), encoding="utf-8")
+    print(f"Written: {root_config.relative_to(output_root.parent)} ({len(blocks)} version(s))")
+
+
 def main() -> int:
-    load_dotenv()
-    chroma_path = os.environ.get("CHROMA_PATH", "../chroma_db")
+    # Resolve paths relative to this file so the script works no matter the cwd.
+    here = Path(__file__).resolve().parent
+    rag_root = here.parent
+    load_dotenv(rag_root / ".env")
+
+    chroma_path = os.environ.get("CHROMA_PATH")
+    if not chroma_path or chroma_path.startswith("./") or chroma_path == "chroma_db":
+        chroma_path = str(rag_root / "chroma_db")
     default_version = os.environ.get("COLLECTION_NAME", "knowledge_base")
+    print(f"Using chroma_path: {chroma_path}")
 
     parser = argparse.ArgumentParser(description="Export ChromaDB to TensorBoard Projector")
     parser.add_argument(
