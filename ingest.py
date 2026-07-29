@@ -30,7 +30,7 @@ _COLLECTION_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{1,510}[A-Za-z0-9]$
 
 
 def _validate_version(version: str) -> None:
-    if not _COLLECTION_NAME_RE.match(version):
+    if not _COLLECTION_NAME_RES.match(version):
         raise SystemExit(
             f"Invalid --version '{version}'. ChromaDB requires 3-512 chars from "
             "[a-zA-Z0-9._-], starting and ending alphanumeric (e.g. 'v1-init', "
