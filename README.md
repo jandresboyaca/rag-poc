@@ -1,4 +1,4 @@
-# RAG PoC — Local Stack (Ollama + ChromaDB + MCP)
+# TEST RAG PoC — Local Stack (Ollama + ChromaDB + MCP)
 
 Step-by-step Retrieval-Augmented Generation proof of concept. Runs **fully local**
 on Ollama and ChromaDB, exposed to a terminal chat via MCP. The architecture is
